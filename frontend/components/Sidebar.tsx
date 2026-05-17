@@ -1,7 +1,9 @@
 'use client';
 
+import axios from 'axios';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 const navItems = [
   {
@@ -47,6 +49,14 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  
+  useEffect(() => {
+    axios.get('/api/auth/me').then(res => {
+      setUser(res.data);
+    });
+  }, []);
+  
 
   return (
     <aside className="w-60 shrink-0 h-screen sticky top-0 flex flex-col bg-white border-r border-slate-200">
@@ -104,15 +114,26 @@ export default function Sidebar() {
           Paramètres
         </Link>
 
-        {/* User info */}
+        {/* User info + logout */}
         <div className="flex items-center gap-3 px-3 py-2 mt-1">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shrink-0">
-            <span className="text-xs font-bold text-white">MB</span>
+            <span className="text-xs font-bold text-white">
+              {user?.name?.split(' ').map((w: string) => w[0]).join('').toUpperCase() ?? '?'}
+            </span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-slate-900 truncate">Maël Ballereau</p>
-            <p className="text-xs text-slate-500 truncate">maelballereau363@gmail.com</p>
+            <p className="text-xs font-semibold text-slate-900 truncate">{user?.name ?? '—'}</p>
+            <p className="text-xs text-slate-500 truncate">{user?.email ?? '—'}</p>
           </div>
+          <a
+            href={`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`}
+            title="Se déconnecter"
+            className="shrink-0 text-slate-400 hover:text-red-500 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+            </svg>
+          </a>
         </div>
       </div>
     </aside>

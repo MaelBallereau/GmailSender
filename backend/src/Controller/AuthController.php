@@ -7,6 +7,7 @@ use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use League\OAuth2\Client\Provider\Google;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -79,9 +80,17 @@ final class AuthController extends AbstractController
         $em->persist($user);
         $em->flush();
 
-        return $this->redirect(
-            $this->getParameter('app.frontend_url') . '/dashboard?token=' . $user->getApiToken()
-        );
+        $cookie = Cookie::create('api_token')
+            ->withValue($user->getApiToken())
+            ->withHttpOnly(true)
+            ->withSameSite(Cookie::SAMESITE_LAX)
+            ->withSecure(false)
+            ->withPath('/');
+
+        $response = new RedirectResponse($this->getParameter('app.frontend_url') . '/dashboard');
+        $response->headers->setCookie($cookie);
+
+        return $response;
     }
 
     #[Route('/auth/logout', name: 'auth_logout', methods: ['GET'])]
@@ -89,14 +98,17 @@ final class AuthController extends AbstractController
     {
         $request->getSession()->clear();
 
-        return $this->redirect($this->getParameter('app.frontend_url') . '/login');
+        $response = new RedirectResponse($this->getParameter('app.frontend_url') . '/login');
+        $response->headers->clearCookie('api_token', '/');
+
+        return $response;
     }
 
     #[Route('/auth/me', name: 'auth_me', methods: ['GET'])]
     public function me(Request $request, UserRepository $userRepository): Response
     {
-        $apiToken = str_replace('Bearer ', '', $request->headers->get('Authorization', ''));
-        $user = $userRepository->findByApiToken($apiToken);
+        $apiToken = $request->cookies->get('api_token');
+        $user = $apiToken ? $userRepository->findByApiToken($apiToken) : null;
 
         if (!$user) {
             return $this->json(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
